@@ -522,20 +522,26 @@ cc.addEventListener('touchend',()=>cropDragStart=null);
 function confirmCrop(){
   const container=document.getElementById('cropContainer');
   const img=document.getElementById('cropImg');
-  const size=280;
+  const outputSize=280;
   const canvas=document.createElement('canvas');
-  canvas.width=size;canvas.height=size;
+  canvas.width=outputSize;canvas.height=outputSize;
   const ctx=canvas.getContext('2d');
-  ctx.beginPath();ctx.arc(size/2,size/2,size/2,0,Math.PI*2);ctx.clip();
-  const rect=img.getBoundingClientRect();
+  ctx.beginPath();ctx.arc(outputSize/2,outputSize/2,outputSize/2,0,Math.PI*2);ctx.clip();
+  // コンテナとimg要素の実際の位置から切り抜き座標を計算
+  const imgRect=img.getBoundingClientRect();
   const cRect=container.getBoundingClientRect();
-  const scaleX=img.naturalWidth/img.offsetWidth;
-  const scaleY=img.naturalHeight/img.offsetHeight;
-  const sx=(cRect.left-rect.left)*scaleX;
-  const sy=(cRect.top-rect.top)*scaleY;
-  const sw=size*scaleX*(img.offsetWidth/container.offsetWidth);
-  const sh=size*scaleY*(img.offsetHeight/container.offsetHeight);
-  ctx.drawImage(img,Math.max(0,sx),Math.max(0,sy),sw,sh,0,0,size,size);
+  // コンテナ内でのimg左上の位置（px）
+  const imgLeft=imgRect.left-cRect.left;
+  const imgTop=imgRect.top-cRect.top;
+  // img要素のスケール（表示サイズ vs 実際のサイズ）
+  const scaleX=img.naturalWidth/imgRect.width;
+  const scaleY=img.naturalHeight/imgRect.height;
+  // コンテナ(280x280)に対応する元画像の座標
+  const sx=-imgLeft*scaleX;
+  const sy=-imgTop*scaleY;
+  const sw=cRect.width*scaleX;
+  const sh=cRect.height*scaleY;
+  ctx.drawImage(img,Math.max(0,sx),Math.max(0,sy),sw,sh,0,0,outputSize,outputSize);
   const dataUrl=canvas.toDataURL('image/png');
   const s=loadSettings();
   if(cropType==='praise'){
@@ -607,7 +613,7 @@ function calcTodayBudget(){
   const mainTodayUsed=entries.filter(e=>e.catId===mainCat.id&&e.dayKey===todayKey).reduce((s,e)=>s+e.amount,0);
   const mainMonthRemain=mainCat.budget-mainMonthUsed;
   let bonus=0;
-  cats.filter(c=>c.givesBonus).forEach(c=>{const used=entries.filter(e=>e.catId===c.id).reduce((s,e)=>s+e.amount,0);bonus+=Math.max(0,c.budget-used);});
+  cats.filter(c=>c.givesBonus&&!c.isMain).forEach(c=>{const used=entries.filter(e=>e.catId===c.id).reduce((s,e)=>s+e.amount,0);bonus+=Math.max(0,c.budget-used);});
   const todayBudget=Math.floor((mainMonthRemain+bonus)/daysLeft);
   return{mainCat,mainTodayUsed,mainMonthRemain,todayBudget,bonus,daysLeft};
 }
