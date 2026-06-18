@@ -161,7 +161,7 @@ body { min-height: 100vh; background: linear-gradient(160deg,#e0f7fa 0%,#fffde7 
 </style>
 </head>
 <body>
-<div id="loginScreen" style="display:none;position:fixed;inset:0;background:linear-gradient(160deg,#e0f7fa 0%,#fffde7 60%,#e0f7fa 100%);z-index:1000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;padding:40px">
+<div id="loginScreen" style="display:none;position:fixed;inset:0;background:linear-gradient(160deg,#e0f7fa 0%,#fffde7 60%,#e0f7fa 100%);z-index:1000;align-items:center;justify-content:center;flex-direction:column;gap:20px;padding:40px">
   <div style="text-align:center">
     <div style="font-size:48px;margin-bottom:8px">📒</div>
     <div style="font-size:28px;font-weight:800;color:#0097a7">食費管理帳</div>
@@ -193,6 +193,7 @@ body { min-height: 100vh; background: linear-gradient(160deg,#e0f7fa 0%,#fffde7 
   </div>
 </div>
 
+<div id="appMain">
 <div class="header">
   <div>
     <div class="header-sub">My Kakeibo</div>
@@ -295,6 +296,7 @@ body { min-height: 100vh; background: linear-gradient(160deg,#e0f7fa 0%,#fffde7 
     <input class="input-field" type="number" id="amountInput" placeholder="例：800" inputmode="numeric" oninput="updatePlayEquiv()">
     <div class="input-label">メモ（任意）</div>
     <input class="input-field-sm" id="memoInput" type="text" placeholder="例：ランチ、映画…">
+    <div id="spendError" style="display:none;font-size:12px;color:#e05a6a;margin-bottom:8px;text-align:center">金額を入力してください</div>
     <button class="btn-submit btn-spend-submit" onclick="addEntry()">記録する</button>
   </div>
 </div>
@@ -307,6 +309,7 @@ body { min-height: 100vh; background: linear-gradient(160deg,#e0f7fa 0%,#fffde7 
     <input class="input-field" type="number" id="savingAmountInput" placeholder="例：20000" inputmode="numeric">
     <div class="input-label">メモ（任意）</div>
     <input class="input-field-sm" id="savingMemoInput" type="text" placeholder="例：バイト代から">
+    <div id="saveError" style="display:none;font-size:12px;color:#e05a6a;margin-bottom:8px;text-align:center">金額を入力してください</div>
     <button class="btn-submit btn-save-submit" onclick="addSaving()">貯金した！</button>
   </div>
 </div>
@@ -323,6 +326,7 @@ body { min-height: 100vh; background: linear-gradient(160deg,#e0f7fa 0%,#fffde7 
     <input class="input-field" type="number" id="incomeActual" placeholder="未入力でもOK" inputmode="numeric" style="font-size:16px">
     <div class="input-label">給料日</div>
     <input class="input-field-sm" id="incomeDate" type="date">
+    <div id="incomeError" style="display:none;font-size:12px;color:#e05a6a;margin-bottom:8px;text-align:center">予定金額を入力してください</div>
     <button class="btn-submit btn-save-submit" onclick="addIncome()">記録する</button>
   </div>
 </div>
@@ -354,6 +358,10 @@ body { min-height: 100vh; background: linear-gradient(160deg,#e0f7fa 0%,#fffde7 
     <div class="drawer-item">
       <div class="drawer-item-label">貯金目標（総額・円）</div>
       <input class="drawer-input" id="settingGoal" type="number" placeholder="例：500000" inputmode="numeric">
+    </div>
+    <div class="drawer-item">
+      <div class="drawer-item-label">給料日（毎月何日）</div>
+      <input class="drawer-input" id="settingSalaryDay" type="number" min="1" max="31" placeholder="例：25" inputmode="numeric">
     </div>
     <button class="drawer-save" onclick="saveBasicSettings()">保存する</button>
     <div id="basicSaved" style="text-align:center;font-size:12px;color:#4dd0e1;margin-top:8px;display:none">保存しました！</div>
@@ -414,6 +422,7 @@ body { min-height: 100vh; background: linear-gradient(160deg,#e0f7fa 0%,#fffde7 
     <div id="girlSaved" style="text-align:center;font-size:12px;color:#4dd0e1;margin-top:8px;display:none">保存しました！</div>
   </div>
 </div>
+</div><!-- #appMain -->
 
 <script>
 const CAT_COLORS=['#00bcd4','#ffe082','#ff8a80','#a5d6a7','#ce93d8','#ffb74d','#f06292','#4db6ac'];
@@ -426,6 +435,7 @@ const DEFAULT_SETTINGS={title:'食費管理帳',name:'',goal:0,praiseImg:null,wa
   warnSerifs:['ちょっと！今日の食費オーバーだよ！明日は我慢してね？','だめだめだめ！予算オーバーじゃん！反省して！','もう…せっかく貯金頑張ってるのに…！','予算オーバー！東京引越しのこと忘れてないよね！？'],
 };
 
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function loadSettings(){try{return Object.assign({},DEFAULT_SETTINGS,JSON.parse(localStorage.getItem('ks_settings')||'{}'));}catch{return{...DEFAULT_SETTINGS};}}
 function saveSettingsData(s){try{localStorage.setItem('ks_settings',JSON.stringify(s));pushToSupabase('kakeibo_settings',s);}catch{}}
 function loadCats(){try{const c=JSON.parse(localStorage.getItem('ks_cats')||'null');return c||DEFAULT_CATS;}catch{return DEFAULT_CATS;}}
@@ -566,7 +576,7 @@ function renderSerifList(type,serifs){
   const el=document.getElementById(type+'SerifList');
   el.innerHTML=serifs.map((txt,i)=>`
     <div class="serif-row">
-      <input class="serif-input" id="serif_${type}_${i}" value="${txt.replace(/"/g,'&quot;')}" type="text">
+      <input class="serif-input" id="serif_${type}_${i}" value="${esc(txt)}" type="text">
       <button class="serif-del" onclick="removeSerif('${type}',${i})">×</button>
     </div>`).join('');
 }
@@ -648,11 +658,8 @@ function render(){
   catCardsEl.innerHTML=cats.filter(c=>!c.isMain).map((c,i)=>{
     const color=CAT_COLORS[cats.indexOf(c)%CAT_COLORS.length];
     const used=catTotals[c.id]||0;const remaining=c.budget-used;const pct=Math.min((used/c.budget)*100,100);const isOver=used>c.budget;
-    return`<div class="cat-card"><div class="cat-header"><div class="cat-name">${c.name}${c.givesBonus?' (余りは食費に加算)':''}</div><div style="font-size:11px;color:${isOver?'#e05a6a':color}">¥${used.toLocaleString()} / ¥${c.budget.toLocaleString()}</div></div><div class="cat-bar"><div class="cat-fill" style="width:${pct}%;background:${isOver?'linear-gradient(90deg,#ff6b8a,#ff4757)':pct>80?'linear-gradient(90deg,#ffe082,#ffca28)':`linear-gradient(90deg,${color},${color}cc)`}"></div></div><div class="cat-hint" style="color:${remaining<0?'#e05a6a':'#4dd0e1'}">${remaining<0?`¥${Math.abs(remaining).toLocaleString()} オーバー`:`残り ¥${remaining.toLocaleString()}`}</div></div>`;
+    return`<div class="cat-card"><div class="cat-header"><div class="cat-name">${esc(c.name)}${c.givesBonus?' (余りは食費に加算)':''}</div><div style="font-size:11px;color:${isOver?'#e05a6a':color}">¥${used.toLocaleString()} / ¥${c.budget.toLocaleString()}</div></div><div class="cat-bar"><div class="cat-fill" style="width:${pct}%;background:${isOver?'linear-gradient(90deg,#ff6b8a,#ff4757)':pct>80?'linear-gradient(90deg,#ffe082,#ffca28)':`linear-gradient(90deg,${color},${color}cc)`}"></div></div><div class="cat-hint" style="color:${remaining<0?'#e05a6a':'#4dd0e1'}">${remaining<0?`¥${Math.abs(remaining).toLocaleString()} オーバー`:`残り ¥${remaining.toLocaleString()}`}</div></div>`;
   }).join('');
-
-  const sel=document.getElementById('catSelect2');
-  if(sel){const prev=sel.value;sel.innerHTML=cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');if(prev)sel.value=prev;}
 
   const totalSaved=savings.reduce((s,e)=>s+e.amount,0);const goal=settings.goal||0;
   if(goal>0){const gpct=Math.min((totalSaved/goal)*100,100),rem=Math.max(0,goal-totalSaved);document.getElementById('goalAmounts').textContent=`¥${totalSaved.toLocaleString()} / ¥${goal.toLocaleString()}`;document.getElementById('goalFill').style.width=gpct+'%';document.getElementById('goalHint').textContent=rem>0?`あと ¥${rem.toLocaleString()} で達成！`:'目標達成！おめでとう！';document.getElementById('goalHint').style.color=rem===0?'#e05a6a':'#4dd0e1';}
@@ -675,10 +682,10 @@ function render(){
       :[...shown].reverse().map(e=>{
         const cat=cats2.find(c=>c.id===e.catId);const catColor=cat?CAT_COLORS[cats2.indexOf(cat)%CAT_COLORS.length]:'#ccc';
         const isPlay=e.entryType==='play';const equiv=isPlay&&dailyBudget>0?(e.amount/dailyBudget).toFixed(1):null;
-        return`<div class="entry"><div class="entry-info"><div class="entry-memo">${e.memo}</div><div class="entry-sub">${e.date} ${e.time}<span class="cat-badge" style="background:${catColor}22;color:${catColor}">${cat?cat.name:''}</span>${isPlay&&equiv?`<span class="cat-badge" style="background:#fffde7;color:#f57f17">食費${equiv}日分</span>`:''}</div></div><div class="entry-amount" style="color:#e05a6a">-¥${e.amount.toLocaleString()}</div><button class="entry-del" onclick="deleteEntry(${e.id})">×</button></div>`;
+        return`<div class="entry"><div class="entry-info"><div class="entry-memo">${esc(e.memo)}</div><div class="entry-sub">${esc(e.date)} ${esc(e.time)}<span class="cat-badge" style="background:${catColor}22;color:${catColor}">${cat?esc(cat.name):''}</span>${isPlay&&equiv?`<span class="cat-badge" style="background:#fffde7;color:#f57f17">食費${equiv}日分</span>`:''}</div></div><div class="entry-amount" style="color:#e05a6a">-¥${e.amount.toLocaleString()}</div><button class="entry-del" onclick="deleteEntry(${e.id})">×</button></div>`;
       }).join('');
   }
-  if(currentTab==='savings'){const sec=document.getElementById('savingsSection');sec.innerHTML=`<div class="graph-card" style="margin-bottom:12px"><div style="font-size:11px;color:#4dd0e1;margin-bottom:4px">累計貯金額</div><div style="font-size:32px;font-weight:800;color:#0097a7">¥${totalSaved.toLocaleString()}</div>${goal>0?`<div style="font-size:12px;color:#4dd0e1;margin-top:4px">目標まであと ¥${Math.max(0,goal-totalSaved).toLocaleString()}</div>`:''}</div>`+(savings.length===0?'<div class="empty">貯金の記録がないよ！</div>':[...savings].reverse().map(e=>`<div class="entry"><div class="entry-info"><div class="entry-memo">${e.memo}</div><div class="entry-sub">${e.date}</div></div><div class="entry-amount" style="color:#0097a7">+¥${e.amount.toLocaleString()}</div><button class="entry-del" onclick="deleteSaving(${e.id})">×</button></div>`).join(''));}
+  if(currentTab==='savings'){const sec=document.getElementById('savingsSection');sec.innerHTML=`<div class="graph-card" style="margin-bottom:12px"><div style="font-size:11px;color:#4dd0e1;margin-bottom:4px">累計貯金額</div><div style="font-size:32px;font-weight:800;color:#0097a7">¥${totalSaved.toLocaleString()}</div>${goal>0?`<div style="font-size:12px;color:#4dd0e1;margin-top:4px">目標まであと ¥${Math.max(0,goal-totalSaved).toLocaleString()}</div>`:''}</div>`+(savings.length===0?'<div class="empty">貯金の記録がないよ！</div>':[...savings].reverse().map(e=>`<div class="entry"><div class="entry-info"><div class="entry-memo">${esc(e.memo)}</div><div class="entry-sub">${esc(e.date)}</div></div><div class="entry-amount" style="color:#0097a7">+¥${e.amount.toLocaleString()}</div><button class="entry-del" onclick="deleteSaving(${e.id})">×</button></div>`).join(''));}
   if(currentTab==='income')renderIncomeSection();
   if(currentTab==='graph')renderGraphs();
   if(currentTab==='memo')document.getElementById('memoTextarea').value=loadMemo();
@@ -688,7 +695,8 @@ function render(){
 function addEntry(){
   const amountVal=parseInt(document.getElementById('amountInput').value);
   const memoVal=document.getElementById('memoInput').value||(selectedType==='play'?'娯楽':'食費');
-  if(!amountVal||amountVal<=0)return;
+  if(!amountVal||amountVal<=0){document.getElementById('spendError').style.display='block';return;}
+  document.getElementById('spendError').style.display='none';
   const cats=loadCats();const entries=loadEntries();const todayKey=getTodayKey();
   // タイプに応じてカテゴリを自動選択
   let catId;
@@ -696,13 +704,14 @@ function addEntry(){
   else{const mainCat=cats.find(c=>c.isMain);catId=mainCat?mainCat.id:cats[0].id;}
   const now=new Date();
   const newEntry={id:Date.now(),amount:amountVal,memo:memoVal,catId,entryType:selectedType,dayKey:todayKey,month_key:getMonthKey(),date:now.toLocaleDateString('ja-JP'),time:now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})};
+  // 警告判定は保存前（新エントリ追加前）の状態で行う
+  const calcBefore=calcTodayBudget();
   entries.push(newEntry);
   saveEntries(entries);
   pushToSupabase('entries_upsert',newEntry);
   const settings=loadSettings();
-  const calc=calcTodayBudget();
   let isWarn=false;
-  if(selectedType==='food'&&calc){const newTodayUsed=calc.mainTodayUsed+amountVal;isWarn=newTodayUsed>calc.todayBudget;}
+  if(selectedType==='food'&&calcBefore){const newTodayUsed=calcBefore.mainTodayUsed+amountVal;isWarn=newTodayUsed>calcBefore.todayBudget;}
   else if(selectedType==='play'){const playCat=cats.find(c=>c.givesBonus)||cats.find(c=>!c.isMain);if(playCat){const monthUsed=entries.filter(e=>e.catId===playCat.id).reduce((s,e)=>s+e.amount,0);isWarn=monthUsed>playCat.budget;}}
   const serifs=isWarn?(settings.warnSerifs||DEFAULT_SETTINGS.warnSerifs):(settings.praiseSerifs||DEFAULT_SETTINGS.praiseSerifs);
   const serif=getRandom(serifs);
@@ -711,9 +720,9 @@ function addEntry(){
   selectType('food');closeSpendModal();render();
 }
 
-function addSaving(){const amountVal=parseInt(document.getElementById('savingAmountInput').value);const memoVal=document.getElementById('savingMemoInput').value||'バイト代など';if(!amountVal||amountVal<=0)return;const savings=loadSavings();const now=new Date();const newSaving={id:Date.now(),amount:amountVal,memo:memoVal,date:now.toLocaleDateString('ja-JP')};savings.push(newSaving);saveSavingsData(savings);pushToSupabase('savings_upsert',newSaving);const settings=loadSettings();const serifs=settings.praiseSerifs||DEFAULT_SETTINGS.praiseSerifs;showGirl(getRandom(serifs),false,settings);playWinSound();launchConfetti();document.getElementById('savingAmountInput').value='';document.getElementById('savingMemoInput').value='';closeSaveModal();render();}
+function addSaving(){const amountVal=parseInt(document.getElementById('savingAmountInput').value);const memoVal=document.getElementById('savingMemoInput').value||'バイト代など';if(!amountVal||amountVal<=0){document.getElementById('saveError').style.display='block';return;}document.getElementById('saveError').style.display='none';const savings=loadSavings();const now=new Date();const newSaving={id:Date.now(),amount:amountVal,memo:memoVal,date:now.toLocaleDateString('ja-JP')};savings.push(newSaving);saveSavingsData(savings);pushToSupabase('savings_upsert',newSaving);const settings=loadSettings();const serifs=settings.praiseSerifs||DEFAULT_SETTINGS.praiseSerifs;showGirl(getRandom(serifs),false,settings);playWinSound();launchConfetti();document.getElementById('savingAmountInput').value='';document.getElementById('savingMemoInput').value='';closeSaveModal();render();}
 
-function addIncome(){const name=document.getElementById('incomeName').value||'収入';const expected=parseInt(document.getElementById('incomeExpected').value)||0;const actual=document.getElementById('incomeActual').value?parseInt(document.getElementById('incomeActual').value):null;const date=document.getElementById('incomeDate').value;if(!expected)return;const incomes=loadIncomes();const newIncome={id:Date.now(),name,expected,actual,date};incomes.push(newIncome);saveIncomesData(newIncome);pushToSupabase('incomes_upsert',newIncome);document.getElementById('incomeName').value='';document.getElementById('incomeExpected').value='';document.getElementById('incomeActual').value='';document.getElementById('incomeDate').value='';closeIncomeModal();if(currentTab==='income')renderIncomeSection();}
+function addIncome(){const name=document.getElementById('incomeName').value||'収入';const expected=parseInt(document.getElementById('incomeExpected').value)||0;const actual=document.getElementById('incomeActual').value?parseInt(document.getElementById('incomeActual').value):null;const date=document.getElementById('incomeDate').value;if(!expected){document.getElementById('incomeError').style.display='block';return;}document.getElementById('incomeError').style.display='none';const incomes=loadIncomes();const newIncome={id:Date.now(),name,expected,actual,date};incomes.push(newIncome);saveIncomesData(incomes);pushToSupabase('incomes_upsert',newIncome);document.getElementById('incomeName').value='';document.getElementById('incomeExpected').value='';document.getElementById('incomeActual').value='';document.getElementById('incomeDate').value='';closeIncomeModal();if(currentTab==='income')renderIncomeSection();}
 
 function showGirl(serif,isWarn,settings){
   const card=document.getElementById('girlCard'),wrap=document.getElementById('girlIconWrap');
@@ -738,7 +747,7 @@ function renderIncomeSection(){
   sec.innerHTML=`<div class="graph-card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px"><div><div style="font-size:11px;color:#4dd0e1;margin-bottom:4px">今月の予定収入</div><div style="font-size:28px;font-weight:800;color:#0097a7">¥${totalExpected.toLocaleString()}</div></div>${totalActual>0?`<div style="text-align:right"><div style="font-size:11px;color:#4dd0e1;margin-bottom:4px">実際の振込</div><div style="font-size:22px;font-weight:800;color:#00897b">¥${totalActual.toLocaleString()}</div></div>`:''}</div>${totalExpected>0?`<div style="height:6px;background:#e0f7fa;border-radius:3px;overflow:hidden;margin-bottom:8px"><div style="height:100%;border-radius:3px;background:linear-gradient(90deg,#ffe082,#ffca28);width:${Math.min((totalEntries/totalExpected)*100,100)}%"></div></div><div style="font-size:11px;color:#4dd0e1">支出 ¥${totalEntries.toLocaleString()} / 収入 ¥${totalExpected.toLocaleString()} &nbsp;<span style="color:${totalExpected-totalEntries>=0?'#00897b':'#e05a6a'};font-weight:600">${totalExpected-totalEntries>=0?'残り':'超過'} ¥${Math.abs(totalExpected-totalEntries).toLocaleString()}</span></div>`:''}
   </div>
   <button onclick="openIncomeModal()" style="width:100%;padding:16px;border-radius:16px;border:none;cursor:pointer;background:linear-gradient(135deg,#a5d6a7,#66bb6a);color:#fff;font-size:16px;font-weight:700;font-family:inherit;margin-bottom:12px;box-shadow:0 4px 12px rgba(102,187,106,0.3)">+ 収入を記録する</button>
-  ${incomes.length===0?'<div class="empty">収入の記録がないよ！</div>':[...incomes].reverse().map(e=>`<div class="entry"><div class="entry-info"><div class="entry-memo">${e.name}</div><div class="entry-sub">給料日：${e.date||'未設定'}${e.actual!==null?`<span style="color:#00897b;font-weight:600;margin-left:6px">振込済 ¥${(e.actual||0).toLocaleString()}</span>`:'<span style="color:#ffca28;font-weight:600;margin-left:6px">未振込</span>'}</div></div><div><div style="font-size:14px;font-weight:700;color:#4dd0e1;text-align:right">予定 ¥${e.expected.toLocaleString()}</div>${e.actual!==null&&e.actual!==e.expected?`<div style="font-size:11px;color:${e.actual>=e.expected?'#00897b':'#e05a6a'};text-align:right">実際 ¥${(e.actual||0).toLocaleString()}</div>`:''}</div><button class="entry-del" onclick="deleteIncome(${e.id})">×</button></div>`).join('')}`;
+  ${incomes.length===0?'<div class="empty">収入の記録がないよ！</div>':[...incomes].reverse().map(e=>`<div class="entry"><div class="entry-info"><div class="entry-memo">${esc(e.name)}</div><div class="entry-sub">給料日：${esc(e.date||'未設定')}${e.actual!==null?`<span style="color:#00897b;font-weight:600;margin-left:6px">振込済 ¥${(e.actual||0).toLocaleString()}</span>`:'<span style="color:#ffca28;font-weight:600;margin-left:6px">未振込</span>'}</div></div><div><div style="font-size:14px;font-weight:700;color:#4dd0e1;text-align:right">予定 ¥${e.expected.toLocaleString()}</div>${e.actual!==null&&e.actual!==e.expected?`<div style="font-size:11px;color:${e.actual>=e.expected?'#00897b':'#e05a6a'};text-align:right">実際 ¥${(e.actual||0).toLocaleString()}</div>`:''}</div><button class="entry-del" onclick="deleteIncome(${e.id})">×</button></div>`).join('')}`;
 }
 
 function deleteEntry(id){saveEntries(loadEntries().filter(e=>e.id!==id));pushToSupabase('entries_delete',id);render();}
@@ -746,11 +755,11 @@ function deleteSaving(id){saveSavingsData(loadSavings().filter(e=>e.id!==id));pu
 function deleteIncome(id){saveIncomesData(loadIncomes().filter(e=>e.id!==id));pushToSupabase('incomes_delete',id);if(currentTab==='income')renderIncomeSection();}
 function closeGirl(){document.getElementById('girlCard').style.display='none';}
 function openSpendModal(){selectedType='food';document.getElementById('typeBtnFood').className='type-btn selected-food';document.getElementById('typeBtnPlay').className='type-btn';document.getElementById('playEquivInfo').style.display='none';document.getElementById('spendOverlay').style.display='flex';setTimeout(()=>document.getElementById('amountInput').focus(),100);}
-function closeSpendModal(){document.getElementById('spendOverlay').style.display='none';}
+function closeSpendModal(){document.getElementById('spendOverlay').style.display='none';document.getElementById('spendError').style.display='none';}
 function openSaveModal(){document.getElementById('saveOverlay').style.display='flex';setTimeout(()=>document.getElementById('savingAmountInput').focus(),100);}
-function closeSaveModal(){document.getElementById('saveOverlay').style.display='none';}
-function openIncomeModal(){document.getElementById('incomeOverlay').style.display='flex';const now=new Date();const d=new Date(now.getFullYear(),now.getMonth(),25);document.getElementById('incomeDate').value=d.toISOString().split('T')[0];setTimeout(()=>document.getElementById('incomeName').focus(),100);}
-function closeIncomeModal(){document.getElementById('incomeOverlay').style.display='none';}
+function closeSaveModal(){document.getElementById('saveOverlay').style.display='none';document.getElementById('saveError').style.display='none';}
+function openIncomeModal(){document.getElementById('incomeOverlay').style.display='flex';const now=new Date();const s=loadSettings();const day=s.salaryDay||25;const d=new Date(now.getFullYear(),now.getMonth(),day);document.getElementById('incomeDate').value=d.toISOString().split('T')[0];setTimeout(()=>document.getElementById('incomeName').focus(),100);}
+function closeIncomeModal(){document.getElementById('incomeOverlay').style.display='none';document.getElementById('incomeError').style.display='none';}
 
 function switchTab(tab){currentTab=tab;['today','month','income','savings','graph','memo'].forEach(t=>{const el=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));if(el)el.className=`tab ${t===tab?'active':'inactive'}`;});render();}
 
@@ -759,6 +768,7 @@ function openDrawer(){
   document.getElementById('settingTitle').value=s.title||'食費管理帳';
   document.getElementById('settingName').value=s.name||'';
   document.getElementById('settingGoal').value=s.goal||'';
+  document.getElementById('settingSalaryDay').value=s.salaryDay||25;
   if(s.praiseImg)document.getElementById('praisePreview').innerHTML=`<img src="${s.praiseImg}"><br>変更する`;
   if(s.warnImg)document.getElementById('warnPreview').innerHTML=`<img src="${s.warnImg}"><br>変更する`;
   renderCatList();renderSerifLists();
@@ -767,8 +777,8 @@ function openDrawer(){
 }
 function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('drawerOverlay').style.display='none';}
 function switchDrawerTab(tab){['basic','cats','girl'].forEach(t=>{document.getElementById('dtab-'+t).className=`drawer-tab ${t===tab?'active':'inactive'}`;document.getElementById('dpanel-'+t).className=`drawer-panel ${t===tab?'active':''}`;});}
-function saveBasicSettings(){const s=loadSettings();s.title=document.getElementById('settingTitle').value||'食費管理帳';s.name=document.getElementById('settingName').value;s.goal=parseInt(document.getElementById('settingGoal').value)||0;saveSettingsData(s);const el=document.getElementById('basicSaved');el.style.display='block';setTimeout(()=>el.style.display='none',2000);render();}
-function renderCatList(){const cats=loadCats();document.getElementById('catList').innerHTML=cats.map((c,i)=>`<div class="cat-row"><div style="width:10px;height:10px;border-radius:50%;background:${CAT_COLORS[i%CAT_COLORS.length]};flex-shrink:0"></div><div class="cat-row-name">${c.name}${c.isMain?' [メイン]':''}${c.givesBonus?' [余りを加算]':''}</div><div class="cat-row-amount">¥${c.budget.toLocaleString()}</div><button class="cat-row-del" onclick="deleteCat(${c.id})">×</button></div>`).join('');}
+function saveBasicSettings(){const s=loadSettings();s.title=document.getElementById('settingTitle').value||'食費管理帳';s.name=document.getElementById('settingName').value;s.goal=parseInt(document.getElementById('settingGoal').value)||0;const day=parseInt(document.getElementById('settingSalaryDay').value);s.salaryDay=(day>=1&&day<=31)?day:25;saveSettingsData(s);const el=document.getElementById('basicSaved');el.style.display='block';setTimeout(()=>el.style.display='none',2000);render();}
+function renderCatList(){const cats=loadCats();document.getElementById('catList').innerHTML=cats.map((c,i)=>`<div class="cat-row"><div style="width:10px;height:10px;border-radius:50%;background:${CAT_COLORS[i%CAT_COLORS.length]};flex-shrink:0"></div><div class="cat-row-name">${esc(c.name)}${c.isMain?' [メイン]':''}${c.givesBonus?' [余りを加算]':''}</div><div class="cat-row-amount">¥${c.budget.toLocaleString()}</div><button class="cat-row-del" onclick="deleteCat(${c.id})">×</button></div>`).join('');}
 function showAddCatForm(){document.getElementById('addCatForm').style.display='block';document.getElementById('newCatName').focus();}
 function addCategory(){const name=document.getElementById('newCatName').value.trim();const amount=parseInt(document.getElementById('newCatAmount').value)||0;const isMain=document.getElementById('newCatMain').checked;const givesBonus=document.getElementById('newCatGivesBonus').checked;if(!name||!amount)return;const cats=loadCats();cats.push({id:Date.now(),name,budget:amount,isMain,strict:isMain,givesBonus});saveCats(cats);document.getElementById('newCatName').value='';document.getElementById('newCatAmount').value='';document.getElementById('newCatMain').checked=false;document.getElementById('newCatGivesBonus').checked=false;document.getElementById('addCatForm').style.display='none';renderCatList();const el=document.getElementById('catsSaved');el.style.display='block';setTimeout(()=>el.style.display='none',1500);render();}
 function deleteCat(id){saveCats(loadCats().filter(c=>c.id!==id));renderCatList();render();}
@@ -785,28 +795,30 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let currentUser = null;
 
 async function initAuth() {
+  function showApp(visible) {
+    document.getElementById("appMain").style.display = visible ? "block" : "none";
+    const ls = document.getElementById("loginScreen");
+    ls.style.display = visible ? "none" : "flex";
+  }
+
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     currentUser = session.user;
-    document.getElementById("loginScreen").style.display = "none";
+    showApp(true);
     await syncFromSupabase();
     render();
   } else {
-    document.getElementById("loginScreen").style.display = "flex";
-    document.querySelector(".header").style.display = "none";
-    document.querySelector(".hero-card").style.display = "none";
+    showApp(false);
   }
   sb.auth.onAuthStateChange(async (event, session) => {
     if (session) {
       currentUser = session.user;
-      document.getElementById("loginScreen").style.display = "none";
-      document.querySelector(".header").style.display = "flex";
-      document.querySelector(".hero-card").style.display = "block";
+      showApp(true);
       await syncFromSupabase();
       render();
     } else {
       currentUser = null;
-      document.getElementById("loginScreen").style.display = "flex";
+      showApp(false);
     }
   });
 }
